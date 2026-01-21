@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Face Search</title>
+</head>
+<body>
+    <h2>Face Search (PimEyes-style)</h2>
+
+    <form action="/api/search" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept="image/*" required>
+        <br><br>
+        <button type="submit">Search Face</button>
+    </form>
+
+    <hr>
+
+    <p>Upload a clear face image.</p>
+</body>
+</html>
