@@ -26,30 +26,49 @@ EMBEDDING_DIM = 512
 # -----------------------------
 # Utilities
 # -----------------------------
-def download_image(url: str) -> np.ndarray:
-    """Download image from URL and return as numpy array"""
+def download_image(url: str):
+    if not isinstance(url, str):
+        raise ValueError("URL must be a string")
+
     if url.startswith("//"):
         url = "https:" + url
 
-    r = requests.get(url, timeout=10)
+    if not url.startswith("http"):
+        raise ValueError("Invalid URL")
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; FaceSearchBot/1.0)",
+        "Referer": "https://commons.wikimedia.org/"
+    }
+
+    r = requests.get(url, headers=headers, timeout=15)
     r.raise_for_status()
-
-    img_array = np.frombuffer(r.content, np.uint8)
-    return img_array
+    return r.content
 
 
-def extract_embedding(img_input) -> np.ndarray | None:
-    """Extract face embedding using DeepFace"""
-    try:
-        reps = DeepFace.represent(
-            img_path=img_input,
-            model_name=MODEL_NAME,
-            detector_backend=DETECTOR_BACKEND,
-            enforce_detection=True,
-        )
-        return np.array(reps[0]["embedding"], dtype="float32")
-    except Exception:
+import cv2
+import numpy as np
+
+def extract_embedding(img_bytes):
+    # bytes → numpy image
+    img_array = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+
+    if img is None:
         return None
+
+    reps = DeepFace.represent(
+        img_path=img,
+        model_name=MODEL_NAME,
+        detector_backend=DETECTOR_BACKEND,
+        enforce_detection=False
+    )
+
+    if not reps:
+        return None
+
+    return np.array(reps[0]["embedding"], dtype="float32")
+
 
 
 # -----------------------------
@@ -119,3 +138,18 @@ def load_index():
 
     print(f"[INDEXER] Loaded index with {index.ntotal} embeddings")
     return index, metadata
+
+# =========================
+# URL NORMALIZATION
+# =========================
+
+def normalize_url(url: str) -> str:
+    if not isinstance(url, str):
+        return ""
+
+    url = url.strip()
+
+    if url.startswith("//"):
+        url = "https:" + url
+
+    return url

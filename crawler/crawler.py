@@ -1,6 +1,6 @@
 import json
 import os
-
+from crawler.sources import crawl_wikimedia_images
 from crawler.sources import crawl_yahoo_images, crawl_flickr_images
 from crawler.rate_limiter import RateLimiter
 from config import CRAWLER_DELAY_SECONDS, CRAWLER_COOLDOWN_HOURS
@@ -99,6 +99,20 @@ def crawl_all_sources():
     crawler_state["last_source"] = "flickr"
 
     print(f"[CRAWLER] Flickr collected {len(new_flickr_urls)} new images")
+
+    # ===============================
+    # wikimedia
+    # ===============================
+    print("[CRAWLER] Crawling Wikimedia")
+    wikimedia = crawl_wikimedia_images()
+
+    new_urls = [u for u in wikimedia["urls"] if u not in crawled_urls]
+    crawler_state["collected_urls"].extend(new_urls)
+    crawled_urls.update(new_urls)
+
+    crawler_state["last_source"] = "wikimedia"
+    print(f"[CRAWLER] Wikimedia collected {len(new_urls)} new images")
+
 
     # ===============================
     # Save crawl results
