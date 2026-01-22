@@ -30,3 +30,7 @@ DEBUG = True
 # ---------------- CREATE DIRS ----------------
 for d in [UPLOAD_FOLDER, IMAGE_DIR, EMBEDDING_DIR]:
     os.makedirs(d, exist_ok=True)
+
+# ---------------- PAGEINATION ----------------
+YAHOO_MAX_PAGES = 3
+FLICKR_MAX_PAGES = 3

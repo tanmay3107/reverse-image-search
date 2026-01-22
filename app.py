@@ -37,4 +37,4 @@ def crawler_status():
     return jsonify(crawler_state)
 
 if __name__ == "__main__":
-    app.run(debug=DEBUG, port=API_PORT)
+    app.run(debug=False, port=API_PORT)

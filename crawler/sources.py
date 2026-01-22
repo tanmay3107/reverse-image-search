@@ -15,62 +15,122 @@ HEADERS = {
 # --------------------------------------------------
 # YAHOO IMAGE SOURCE (KEYWORD-BASED)
 # --------------------------------------------------
-def crawl_yahoo_images(query="face portrait", limit=20):
-    urls = []
-    try:
-        search_url = "https://images.search.yahoo.com/search/images"
-        params = {"p": query}
+import requests
+from bs4 import BeautifulSoup
+from config import YAHOO_MAX_PAGES
 
-        r = requests.get(search_url, params=params, headers=HEADERS, timeout=15)
+def crawl_yahoo_images():
+    collected = []
+    captcha = False
 
-        if is_captcha_page(r.text):
-            return {"captcha": True, "urls": []}
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
-        soup = BeautifulSoup(r.text, "html.parser")
-        imgs = soup.find_all("img", src=True)
+    for page in range(YAHOO_MAX_PAGES):
+        start = page * 20  # Yahoo uses offset
 
-        for img in imgs:
-            src = img.get("src")
-            if src and src.startswith("http"):
-                urls.append(src)
-                if len(urls) >= limit:
-                    break
+        url = (
+            "https://images.search.yahoo.com/search/images"
+            f"?p=face+portrait&b={start}"
+        )
 
-        time.sleep(random.uniform(2, 4))
+        try:
+            r = requests.get(url, headers=headers, timeout=10)
 
-    except Exception:
-        pass
+            if r.status_code != 200:
+                continue
 
-    return {"captcha": False, "urls": urls}
+            if "captcha" in r.text.lower():
+                captcha = True
+                break
+
+            soup = BeautifulSoup(r.text, "html.parser")
+            imgs = soup.find_all("img")
+
+            page_urls = 0
+            for img in imgs:
+                src = img.get("src") or img.get("data-src")
+                if not src:
+                    continue
+
+                if src.startswith("//"):
+                    src = "https:" + src
+
+                if src.startswith("http"):
+                    collected.append(src)
+                    page_urls += 1
+
+            print(f"[YAHOO] Page {page+1}: {page_urls} images")
+
+            # Stop early if page is empty
+            if page_urls == 0:
+                break
+
+        except Exception:
+            continue
+
+    return {
+        "urls": collected,
+        "captcha": captcha
+    }
+
 
 
 # --------------------------------------------------
 # FLICKR IMAGE SOURCE (PUBLIC PHOTOS)
 # --------------------------------------------------
-def crawl_flickr_images(query="portrait", limit=20):
-    urls = []
-    try:
-        search_url = "https://www.flickr.com/search/"
-        params = {"text": query}
+import requests
+from bs4 import BeautifulSoup
+from config import FLICKR_MAX_PAGES
 
-        r = requests.get(search_url, params=params, headers=HEADERS, timeout=15)
+def crawl_flickr_images():
+    collected = []
+    captcha = False
 
-        if is_captcha_page(r.text):
-            return {"captcha": True, "urls": []}
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
-        soup = BeautifulSoup(r.text, "html.parser")
-        imgs = soup.find_all("img", src=True)
+    for page in range(1, FLICKR_MAX_PAGES + 1):
+        url = f"https://www.flickr.com/search/?text=portrait&page={page}"
 
-        for img in imgs:
-            src = img.get("src")
-            if src and ("staticflickr" in src):
-                urls.append(src)
-                if len(urls) >= limit:
-                    break
+        try:
+            r = requests.get(url, headers=headers, timeout=10)
 
-        time.sleep(random.uniform(2, 4))
+            if r.status_code != 200:
+                continue
 
-    except Exception:
-        pass
+            if "captcha" in r.text.lower():
+                captcha = True
+                break
 
-    return {"captcha": False, "urls": urls}
+            soup = BeautifulSoup(r.text, "html.parser")
+            imgs = soup.find_all("img")
+
+            page_urls = 0
+            for img in imgs:
+                src = img.get("src")
+                if not src:
+                    continue
+
+                if src.startswith("//"):
+                    src = "https:" + src
+
+                if "staticflickr.com" in src:
+                    collected.append(src)
+                    page_urls += 1
+
+            print(f"[FLICKR] Page {page}: {page_urls} images")
+
+            if page_urls == 0:
+                break
+
+        except Exception:
+            continue
+
+    return {
+        "urls": collected,
+        "captcha": captcha
+    }
+

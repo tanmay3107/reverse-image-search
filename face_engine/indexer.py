@@ -2,115 +2,120 @@ import os
 import json
 import requests
 import numpy as np
-from io import BytesIO
-from PIL import Image
+import faiss
+from deepface import DeepFace
 
-from config import IMAGE_DIR, EMBEDDING_DIR
-from face_engine.detector import has_face
-from face_engine.embedder import extract_embedding
+# -----------------------------
+# Paths
+# -----------------------------
+DATA_DIR = "data/embeddings"
+EMBEDDINGS_FILE = os.path.join(DATA_DIR, "face_embeddings.npy")
+FAISS_INDEX_FILE = os.path.join(DATA_DIR, "faiss.index")
+METADATA_FILE = os.path.join(DATA_DIR, "metadata.json")
 
-# Output files
-EMBEDDING_FILE = os.path.join(EMBEDDING_DIR, "face_embeddings.npy")
-METADATA_FILE = os.path.join(EMBEDDING_DIR, "metadata.json")
+os.makedirs(DATA_DIR, exist_ok=True)
 
-os.makedirs(IMAGE_DIR, exist_ok=True)
-os.makedirs(EMBEDDING_DIR, exist_ok=True)
+# -----------------------------
+# DeepFace config
+# -----------------------------
+MODEL_NAME = "Facenet512"
+DETECTOR_BACKEND = "retinaface"
+EMBEDDING_DIM = 512
 
 
-# --------------------------------------------------
-# Helper: Download image safely
-# --------------------------------------------------
-def download_image(url: str, save_path: str) -> bool:
+# -----------------------------
+# Utilities
+# -----------------------------
+def download_image(url: str) -> np.ndarray:
+    """Download image from URL and return as numpy array"""
+    if url.startswith("//"):
+        url = "https:" + url
+
+    r = requests.get(url, timeout=10)
+    r.raise_for_status()
+
+    img_array = np.frombuffer(r.content, np.uint8)
+    return img_array
+
+
+def extract_embedding(img_input) -> np.ndarray | None:
+    """Extract face embedding using DeepFace"""
     try:
-        # Fix protocol-less URLs (e.g. //live.staticflickr.com/...)
-        if url.startswith("//"):
-            url = "https:" + url
-
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-        }
-
-        r = requests.get(url, headers=headers, timeout=10)
-        if r.status_code != 200:
-            return False
-
-        img = Image.open(BytesIO(r.content)).convert("RGB")
-        img.save(save_path)
-        return True
-
+        reps = DeepFace.represent(
+            img_path=img_input,
+            model_name=MODEL_NAME,
+            detector_backend=DETECTOR_BACKEND,
+            enforce_detection=True,
+        )
+        return np.array(reps[0]["embedding"], dtype="float32")
     except Exception:
-        return False
+        return None
 
 
-# --------------------------------------------------
-# Helper: Upscale small thumbnails
-# --------------------------------------------------
-def upscale_image(path: str):
-    try:
-        img = Image.open(path).convert("RGB")
-        w, h = img.size
+# -----------------------------
+# ONE-TIME REBUILD FUNCTION
+# -----------------------------
+def rebuild_index_from_urls(image_urls: list[str]):
+    """
+    ONE-TIME rebuild.
+    Call this manually, NOT on app startup.
+    """
 
-        # Upscale tiny thumbnails for face detection
-        if w < 224 or h < 224:
-            new_w = max(224, w * 2)
-            new_h = max(224, h * 2)
-            img = img.resize((new_w, new_h), Image.BILINEAR)
-            img.save(path)
+    print(f"[INDEXER] Rebuilding index from {len(image_urls)} images")
 
-    except Exception:
-        pass
-
-
-# --------------------------------------------------
-# Main: Build face embedding index
-# --------------------------------------------------
-def build_embedding_index(image_urls: list):
     embeddings = []
     metadata = []
 
-    print(f"[INDEXER] Starting indexing for {len(image_urls)} images")
+    for i, url in enumerate(image_urls, start=1):
+        print(f"[INDEXER] ({i}/{len(image_urls)}) Processing")
 
-    for idx, url in enumerate(image_urls):
-        img_path = os.path.join(IMAGE_DIR, f"img_{idx}.jpg")
+        try:
+            img = download_image(url)
+            emb = extract_embedding(img)
 
-        print(f"[INDEXER] Processing {url}")
+            if emb is None:
+                continue
 
-        # Download
-        if not download_image(url, img_path):
-            print("[INDEXER] Download failed — skipped")
-            continue
+            embeddings.append(emb)
+            metadata.append({"url": url})
 
-        # Upscale for detection robustness
-        upscale_image(img_path)
+            print("[INDEXER] Face embedding stored")
 
-        # Face presence check (lightweight)
-        if not has_face(img_path):
-            print("[INDEXER] No face detected — skipped")
-            continue
+        except Exception as e:
+            print(f"[INDEXER] Failed — {e}")
 
-        # Extract ArcFace embedding
-        embedding = extract_embedding(img_path)
-        if embedding is None:
-            print("[INDEXER] Embedding extraction failed — skipped")
-            continue
+    if not embeddings:
+        print("[INDEXER] ❌ No embeddings created — aborting save")
+        return
 
-        embeddings.append(embedding)
-        metadata.append({
-            "image_url": url,
-            "local_path": img_path
-        })
+    embeddings = np.vstack(embeddings).astype("float32")
 
-        print("[INDEXER] Face embedding stored")
+    # ✅ IMPORTANT: Normalize for cosine similarity
+    faiss.normalize_L2(embeddings)
 
-    # Save results
-    if embeddings:
-        embeddings_array = np.vstack(embeddings).astype("float32")
-        np.save(EMBEDDING_FILE, embeddings_array)
+    # ✅ Cosine similarity index
+    index = faiss.IndexFlatIP(EMBEDDING_DIM)
+    index.add(embeddings)
 
-        with open(METADATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2)
+    # Save everything
+    np.save(EMBEDDINGS_FILE, embeddings)
+    faiss.write_index(index, FAISS_INDEX_FILE)
+    with open(METADATA_FILE, "w") as f:
+        json.dump(metadata, f)
 
-        print(f"[INDEXER] Stored {len(embeddings)} face embeddings")
+    print(f"[INDEXER] ✅ Rebuild complete: {len(embeddings)} embeddings saved")
 
-    else:
-        print("[INDEXER] No embeddings stored")
+
+# -----------------------------
+# LOAD EXISTING INDEX (SEARCH)
+# -----------------------------
+def load_index():
+    if not os.path.exists(FAISS_INDEX_FILE):
+        return None, None
+
+    index = faiss.read_index(FAISS_INDEX_FILE)
+    with open(METADATA_FILE, "r") as f:
+        metadata = json.load(f)
+
+    print(f"[INDEXER] Loaded index with {index.ntotal} embeddings")
+    return index, metadata
