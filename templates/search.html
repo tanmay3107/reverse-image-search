@@ -1,19 +1,519 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Face Search</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FaceTrace AI | Reverse Search</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #6366f1; /* Indigo */
+            --primary-hover: #4f46e5;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- Header --- */
+        header {
+            width: 100%;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #334155;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo i { color: var(--primary); }
+
+        /* --- Main Container --- */
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            padding: 40px 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- Upload Zone --- */
+        .upload-area {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            border: 2px dashed #475569;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary);
+            background: #1e293b80;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: var(--text-sub);
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: var(--text-sub);
+            font-size: 1rem;
+        }
+
+        .upload-text b { color: var(--primary); }
+
+        #fileInput { display: none; }
+
+        /* --- Preview & Scanning --- */
+        .preview-container {
+            margin-top: 20px;
+            position: relative;
+            display: none; /* Hidden by default */
+            width: 150px;
+            height: 150px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid var(--primary);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .preview-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+            animation: scan 1.5s linear infinite;
+            display: none;
+        }
+
+        @keyframes scan {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        /* --- Search Button --- */
+        .search-btn {
+            margin-top: 20px;
+            padding: 12px 40px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .search-btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+        }
+
+        .search-btn:disabled {
+            background: #475569;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* --- Results Grid --- */
+        .results-section {
+            width: 100%;
+            margin-top: 50px;
+        }
+
+        .results-header {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid var(--primary);
+            padding-left: 15px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #334155;
+            position: relative;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border-color: var(--primary);
+        }
+
+        .card-img-wrapper {
+            position: relative;
+            height: 200px;
+            background: #000;
+        }
+
+        .card-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.9;
+        }
+
+        .card:hover .card-img { opacity: 1; }
+
+        .card-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+        }
+
+        .card-body {
+            padding: 15px;
+        }
+
+        .match-score {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .score-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: #334155;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 1s ease-out;
+        }
+
+        .source-link {
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .source-link:hover { color: var(--primary); }
+
+        /* --- Utility Classes --- */
+        .hidden { display: none !important; }
+        
+        /* Status Colors */
+        .text-high { color: var(--success); }
+        .bg-high { background: var(--success); }
+        
+        .text-med { color: var(--warning); }
+        .bg-med { background: var(--warning); }
+        
+        .text-low { color: var(--danger); }
+        .bg-low { background: var(--danger); }
+
+        /* --- Mobile --- */
+        @media (max-width: 600px) {
+            header { padding: 15px 20px; }
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
 </head>
 <body>
-    <h2>Face Search (PimEyes-style)</h2>
 
-    <form action="/api/search" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" accept="image/*" required>
-        <br><br>
-        <button type="submit">Search Face</button>
-    </form>
+    <header>
+        <div class="logo"><i class="fas fa-fingerprint"></i> FaceTrace AI</div>
+        <div style="color: var(--text-sub); font-size: 0.9rem;">Internal Demo v2.1</div>
+    </header>
 
-    <hr>
+    <div class="container">
+        
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="font-size: 2.5rem; margin-bottom: 10px;">Find Faces Across the Web</h1>
+            <p style="color: var(--text-sub);">Upload a photo to search public databases using DeepFace + Yandex.</p>
+        </div>
 
-    <p>Upload a clear face image.</p>
+        <div class="upload-area" id="dropZone">
+            <input type="file" id="fileInput" accept="image/*">
+            <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+            <p class="upload-text">Drag & drop your image here or <b>browse</b></p>
+            <p style="font-size: 0.8rem; color: #64748b; margin-top: 10px;">Supported formats: JPG, PNG, WEBP</p>
+        </div>
+
+        <div class="preview-container" id="previewContainer">
+            <img id="previewImg" class="preview-img" src="">
+            <div class="scan-line" id="scanLine"></div>
+        </div>
+
+        <button class="search-btn" id="searchBtn" onclick="startSearch()" disabled>
+            <i class="fas fa-search"></i> Start Scan
+        </button>
+
+        <div class="results-section hidden" id="resultsSection">
+            <div class="results-header">
+                <span id="resultCount">Found 0 potential matches</span>
+                <span style="font-size: 0.9rem; color: var(--text-sub);" id="searchTime">0.0s</span>
+            </div>
+            <div class="grid" id="resultsGrid">
+                </div>
+        </div>
+
+        <div id="statusMessage" style="margin-top: 30px; color: var(--text-sub);"></div>
+
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const previewContainer = document.getElementById('previewContainer');
+        const previewImg = document.getElementById('previewImg');
+        const scanLine = document.getElementById('scanLine');
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsGrid = document.getElementById('resultsGrid');
+        const statusMessage = document.getElementById('statusMessage');
+
+        // --- Drag & Drop Logic ---
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) {
+                handleFile(fileInput.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Please upload an image file.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                previewContainer.style.display = 'block';
+                searchBtn.disabled = false;
+                statusMessage.innerHTML = "";
+                resultsSection.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- Search Logic ---
+        async function startSearch() {
+            const file = fileInput.files[0] || (dropZone.files ? dropZone.files[0] : null);
+            if (!file) return;
+
+            // UI State: Scanning
+            searchBtn.disabled = true;
+            searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning...';
+            scanLine.style.display = 'block';
+            statusMessage.innerHTML = "Initializing DeepFace Neural Network...";
+            resultsSection.classList.add('hidden');
+            
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const startTime = Date.now();
+
+           try {
+            const response = await fetch("/api/search", {
+                method: "POST",
+                body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server error (${response.status})`);
+                }
+
+                const data = await response.json();
+
+                // ✅ BACKEND ERROR HANDLING (ADD HERE)
+                if (data.error) {
+                statusMessage.innerHTML = `
+                    <span style="color: var(--warning)">
+                        <i class="fas fa-info-circle"></i> ${data.error}
+                    </span>
+                `;
+                resultsSection.classList.add('hidden');
+                resultsGrid.innerHTML = "";
+                return; // stop here, do NOT call renderResults
+                }   
+
+                // ✅ Normal success path
+                renderResults(data.matches, startTime);
+
+            } catch (err) {
+                console.error(err);
+                statusMessage.innerHTML = `
+                    <span style="color: var(--danger)">
+                        <i class="fas fa-exclamation-circle"></i> ${err.message}
+                    </span>
+                `;
+            } finally {
+                // Reset UI
+                searchBtn.disabled = false;
+                searchBtn.innerHTML = '<i class="fas fa-search"></i> Start Scan';
+                scanLine.style.display = 'none';
+            }
+        }
+
+
+        function renderResults(results, startTime) {
+            resultsGrid.innerHTML = "";
+            const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+            document.getElementById('searchTime').innerText = `${duration}s`;
+            
+            if (!results || results.length === 0) {
+                statusMessage.innerHTML = `
+                    <span style="color: var(--text-sub)">
+                        No strong face matches were found above the confidence threshold.
+                        <br>
+                        Try a clearer face image or different lighting.
+                    </span>
+                `;
+                return;
+            }
+
+            results = results.slice(0, 5);
+
+            document.getElementById('resultCount').innerText = `Found ${results.length} Matches`;
+            resultsSection.classList.remove('hidden');
+            statusMessage.innerHTML = "";
+
+            results.forEach(res => {
+                // Determine color based on score
+                let colorClass = 'bg-low';
+                let textClass = 'text-low';
+                if (res.similarity >= 80) { colorClass = 'bg-high'; textClass = 'text-high'; }
+                else if (res.similarity >= 60) { colorClass = 'bg-med'; textClass = 'text-med'; }
+
+                // Get domain name for "Source"
+                let domain = "Web Source";
+                try { domain = new URL(res.image_url).hostname.replace('www.', ''); } catch(e){}
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-img-wrapper">
+                        <img src="${res.image_url}" class="card-img" onerror="this.src='https://via.placeholder.com/300x200?text=Image+Error'">
+                        <div class="card-overlay">
+                            <a href="${res.image_url}" target="_blank" style="color:white; text-decoration:none; font-size:0.8rem;">
+                                <i class="fas fa-external-link-alt"></i> Open Image
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="match-score">
+                            <span>Similarity</span>
+                            <span class="${textClass}">${res.similarity}%</span>
+                        </div>
+                        <div class="score-bar-bg">
+                            <div class="score-bar-fill ${colorClass}" style="width: ${res.similarity}%"></div>
+                        </div>
+                        <div style="border-top: 1px solid #334155; padding-top: 10px;">
+                            <a href="${res.image_url}" target="_blank" class="source-link">
+                                <i class="fas fa-globe"></i> ${domain}
+                            </a>
+                        </div>
+                    </div>
+                `;
+                resultsGrid.appendChild(card);
+            });
+        }
+    </script>
 </body>
 </html>
