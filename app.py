@@ -1,10 +1,11 @@
 from flask import Flask, jsonify, render_template
 import threading
 import os
-
 from crawler.crawler import crawl_all_sources, crawler_state
 from config import API_PORT, DEBUG, UPLOAD_FOLDER
 from api.search_api import search_api
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__, template_folder="templates")
 app.register_blueprint(search_api)

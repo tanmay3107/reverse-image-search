@@ -259,3 +259,53 @@ def crawl_pexels_images():
         "captcha": captcha
     }
 
+# --------------------------------------------------
+# SERPAPI IMAGE SOURCE (PUBLIC PHOTOS)
+# --------------------------------------------------
+
+import requests
+from config import UNSPLASH_MAX_PAGES, SERPAPI_API_KEY
+
+def crawl_unsplash_images():
+    collected = []
+    captcha = False
+
+    if not SERPAPI_API_KEY:
+        print("[UNSPLASH] ❌ SERPAPI_API_KEY not set")
+        return {"urls": [], "captcha": False}
+
+    for page in range(0, UNSPLASH_MAX_PAGES):
+        params = {
+            "engine": "google_images",
+            "q": "portrait face site:unsplash.com",
+            "ijn": page,  # image page index
+            "api_key": SERPAPI_API_KEY
+        }
+
+        try:
+            r = requests.get("https://serpapi.com/search.json", params=params, timeout=15)
+            r.raise_for_status()
+            data = r.json()
+
+            images = data.get("images_results", [])
+            page_urls = 0
+
+            for img in images:
+                url = img.get("original")
+                if url and "unsplash.com" in url:
+                    collected.append(url)
+                    page_urls += 1
+
+            print(f"[UNSPLASH] Page {page + 1}: {page_urls} images")
+
+            if page_urls == 0:
+                break
+
+        except Exception as e:
+            print(f"[UNSPLASH] Error: {e}")
+            continue
+
+    return {
+        "urls": collected,
+        "captcha": False
+    }

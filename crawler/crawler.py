@@ -5,7 +5,8 @@ from crawler.sources import (
     crawl_yahoo_images,
     crawl_flickr_images,
     crawl_wikimedia_images,
-    crawl_pexels_images
+    crawl_pexels_images,
+    crawl_unsplash_images
 )
 from crawler.rate_limiter import RateLimiter
 from config import CRAWLER_DELAY_SECONDS, CRAWLER_COOLDOWN_HOURS
@@ -163,6 +164,27 @@ def crawl_all_sources():
 
     append_to_metadata(new_pexels)
     print(f"[CRAWLER] Pexels collected {len(new_pexels)} new images")
+
+    # ===============================
+    # Unsplash (SerpAPI)
+    # ===============================
+    print("[CRAWLER] Crawling Unsplash")
+    rate_limiter.wait()
+
+    unsplash = crawl_unsplash_images()
+
+    new_unsplash_urls = [
+        url for url in unsplash.get("urls", [])
+        if url not in crawled_urls
+    ]
+
+    crawled_urls.update(new_unsplash_urls)
+    crawler_state["collected_urls"].extend(new_unsplash_urls)
+    crawler_state["last_source"] = "unsplash"
+
+    append_to_metadata(new_unsplash_urls)
+
+    print(f"[CRAWLER] Unsplash collected {len(new_unsplash_urls)} new images")
 
     # ===============================
     # Persist crawl results
