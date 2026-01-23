@@ -31,7 +31,19 @@ DEBUG = True
 for d in [UPLOAD_FOLDER, IMAGE_DIR, EMBEDDING_DIR]:
     os.makedirs(d, exist_ok=True)
 
+# ---------------- API KEYS ----------------
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+
+if not PEXELS_API_KEY:
+    raise RuntimeError("PEXELS_API_KEY not set in .env")
+
 # ---------------- PAGEINATION ----------------
 YAHOO_MAX_PAGES = 5
 FLICKR_MAX_PAGES = 5
 WIKIMEDIA_MAX_PAGES = 5
+PEXELS_MAX_PAGES = 5

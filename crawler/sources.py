@@ -202,3 +202,60 @@ def crawl_wikimedia_images():
         "urls": collected,
         "captcha": captcha
     }
+
+# --------------------------------------------------
+# PEXELS IMAGE SOURCE (PUBLIC PHOTOS)
+# --------------------------------------------------
+
+import requests
+from config import PEXELS_API_KEY, PEXELS_MAX_PAGES
+
+
+def crawl_pexels_images():
+    collected = []
+    captcha = False
+
+    headers = {
+        "Authorization": PEXELS_API_KEY
+    }
+
+    query = "old man portrait"
+    per_page = 30  # Pexels max
+
+    for page in range(1, PEXELS_MAX_PAGES + 1):
+        url = (
+            "https://api.pexels.com/v1/search"
+            f"?query={query}"
+            f"&page={page}"
+            f"&per_page={per_page}"
+        )
+
+        try:
+            r = requests.get(url, headers=headers, timeout=10)
+
+            if r.status_code != 200:
+                continue
+
+            data = r.json()
+            photos = data.get("photos", [])
+
+            page_urls = 0
+            for photo in photos:
+                src = photo.get("src", {}).get("medium")
+                if src:
+                    collected.append(src)
+                    page_urls += 1
+
+            print(f"[PEXELS] Page {page}: {page_urls} images")
+
+            if page_urls == 0:
+                break
+
+        except Exception:
+            continue
+
+    return {
+        "urls": collected,
+        "captcha": captcha
+    }
+
