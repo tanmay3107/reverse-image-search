@@ -12,300 +12,268 @@ HEADERS = {
     )
 }
 
+FACE_QUERIES = [
+    "portrait photography face close up",
+    "close up human face photo",
+    "professional headshot face",
+    "street photography portrait single person",
+    "human face candid portrait"
+]
+
 # --------------------------------------------------
 # YAHOO IMAGE SOURCE (KEYWORD-BASED)
 # --------------------------------------------------
-import requests
-from bs4 import BeautifulSoup
 from config import YAHOO_MAX_PAGES
 
 def crawl_yahoo_images():
     collected = []
     captcha = False
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    for query in FACE_QUERIES:
+        query_encoded = query.replace(" ", "+")
 
-    for page in range(YAHOO_MAX_PAGES):
-        start = page * 20  # Yahoo uses offset
+        for page in range(YAHOO_MAX_PAGES):
+            start = page * 20
 
-        url = (
-            "https://images.search.yahoo.com/search/images"
-            f"?p=face+portrait&b={start}"
-        )
+            url = (
+                "https://images.search.yahoo.com/search/images"
+                f"?p={query_encoded}&b={start}"
+            )
 
-        try:
-            r = requests.get(url, headers=headers, timeout=10)
+            try:
+                r = requests.get(url, headers=HEADERS, timeout=10)
 
-            if r.status_code != 200:
-                continue
-
-            if "captcha" in r.text.lower():
-                captcha = True
-                break
-
-            soup = BeautifulSoup(r.text, "html.parser")
-            imgs = soup.find_all("img")
-
-            page_urls = 0
-            for img in imgs:
-                src = img.get("src") or img.get("data-src")
-                if not src:
+                if r.status_code != 200:
                     continue
 
-                if src.startswith("//"):
-                    src = "https:" + src
+                if "captcha" in r.text.lower():
+                    captcha = True
+                    return {"urls": collected, "captcha": True}
 
-                if src.startswith("http"):
-                    collected.append(src)
-                    page_urls += 1
+                soup = BeautifulSoup(r.text, "html.parser")
+                imgs = soup.find_all("img")
 
-            print(f"[YAHOO] Page {page+1}: {page_urls} images")
+                page_urls = 0
+                for img in imgs:
+                    src = img.get("src") or img.get("data-src")
+                    if not src:
+                        continue
 
-            # Stop early if page is empty
-            if page_urls == 0:
-                break
+                    if src.startswith("//"):
+                        src = "https:" + src
 
-        except Exception:
-            continue
+                    if src.startswith("http"):
+                        collected.append(src)
+                        page_urls += 1
 
-    return {
-        "urls": collected,
-        "captcha": captcha
-    }
+                print(f"[YAHOO] {query} | Page {page+1}: {page_urls}")
 
+                if page_urls == 0:
+                    break
 
+            except Exception:
+                continue
+
+            time.sleep(random.uniform(0.8, 1.5))
+
+    return {"urls": collected, "captcha": False}
 
 # --------------------------------------------------
 # FLICKR IMAGE SOURCE (PUBLIC PHOTOS)
 # --------------------------------------------------
-import requests
-from bs4 import BeautifulSoup
 from config import FLICKR_MAX_PAGES
 
 def crawl_flickr_images():
     collected = []
     captcha = False
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    for query in FACE_QUERIES:
+        query_encoded = query.replace(" ", "+")
 
-    for page in range(1, FLICKR_MAX_PAGES + 1):
-        url = f"https://www.flickr.com/search/?text=portrait&page={page}"
+        for page in range(1, FLICKR_MAX_PAGES + 1):
+            url = f"https://www.flickr.com/search/?text={query_encoded}&page={page}"
 
-        try:
-            r = requests.get(url, headers=headers, timeout=10)
+            try:
+                r = requests.get(url, headers=HEADERS, timeout=10)
 
-            if r.status_code != 200:
-                continue
-
-            if "captcha" in r.text.lower():
-                captcha = True
-                break
-
-            soup = BeautifulSoup(r.text, "html.parser")
-            imgs = soup.find_all("img")
-
-            page_urls = 0
-            for img in imgs:
-                src = img.get("src")
-                if not src:
+                if r.status_code != 200:
                     continue
 
-                if src.startswith("//"):
-                    src = "https:" + src
+                if "captcha" in r.text.lower():
+                    captcha = True
+                    return {"urls": collected, "captcha": True}
 
-                if "staticflickr.com" in src:
-                    collected.append(src)
-                    page_urls += 1
+                soup = BeautifulSoup(r.text, "html.parser")
+                imgs = soup.find_all("img")
 
-            print(f"[FLICKR] Page {page}: {page_urls} images")
+                page_urls = 0
+                for img in imgs:
+                    src = img.get("src")
+                    if not src:
+                        continue
 
-            if page_urls == 0:
-                break
+                    if src.startswith("//"):
+                        src = "https:" + src
 
-        except Exception:
-            continue
+                    if "staticflickr.com" in src:
+                        collected.append(src)
+                        page_urls += 1
 
-    return {
-        "urls": collected,
-        "captcha": captcha
-    }
+                print(f"[FLICKR] {query} | Page {page}: {page_urls}")
+
+                if page_urls == 0:
+                    break
+
+            except Exception:
+                continue
+
+            time.sleep(random.uniform(1.0, 1.8))
+
+    return {"urls": collected, "captcha": False}
 
 # --------------------------------------------------
 # WIKIMEDIA IMAGE SOURCE (PUBLIC PHOTOS)
 # --------------------------------------------------
-
-import requests
-from bs4 import BeautifulSoup
 from config import WIKIMEDIA_MAX_PAGES
-
 
 def crawl_wikimedia_images():
     collected = []
     captcha = False
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    for query in FACE_QUERIES:
+        query_encoded = query.replace(" ", "+")
 
-    for page in range(1, WIKIMEDIA_MAX_PAGES + 1):
+        for page in range(1, WIKIMEDIA_MAX_PAGES + 1):
+            url = (
+                "https://commons.wikimedia.org/w/index.php"
+                f"?search={query_encoded}"
+                f"&offset={(page - 1) * 20}"
+                "&limit=20"
+                "&title=Special:MediaSearch"
+                "&type=image"
+            )
 
-        # Wikimedia Commons media search (faces / portraits)
-        url = (
-            "https://commons.wikimedia.org/w/index.php"
-            "?search=human+face+portrait"
-            f"&offset={(page - 1) * 20}"
-            "&limit=20"
-            "&title=Special:MediaSearch"
-            "&type=image"
-        )
+            try:
+                r = requests.get(url, headers=HEADERS, timeout=10)
 
-        try:
-            r = requests.get(url, headers=headers, timeout=10)
-
-            if r.status_code != 200:
-                continue
-
-            if "captcha" in r.text.lower():
-                captcha = True
-                break
-
-            soup = BeautifulSoup(r.text, "html.parser")
-            imgs = soup.find_all("img")
-
-            page_urls = 0
-            for img in imgs:
-                src = img.get("src")
-                if not src:
+                if r.status_code != 200:
                     continue
 
-                if src.startswith("//"):
-                    src = "https:" + src
+                soup = BeautifulSoup(r.text, "html.parser")
+                imgs = soup.find_all("img")
 
-                # Wikimedia images always come from upload.wikimedia.org
-                if "upload.wikimedia.org" in src:
-                    collected.append(src)
-                    page_urls += 1
+                page_urls = 0
+                for img in imgs:
+                    src = img.get("src")
+                    if src and "upload.wikimedia.org" in src:
+                        if src.startswith("//"):
+                            src = "https:" + src
+                        collected.append(src)
+                        page_urls += 1
 
-            print(f"[WIKIMEDIA] Page {page}: {page_urls} images")
+                print(f"[WIKIMEDIA] {query} | Page {page}: {page_urls}")
 
-            if page_urls == 0:
-                break
+                if page_urls == 0:
+                    break
 
-        except Exception:
-            continue
+            except Exception:
+                continue
 
-    return {
-        "urls": collected,
-        "captcha": captcha
-    }
+            time.sleep(1.2)
+
+    return {"urls": collected, "captcha": False}
 
 # --------------------------------------------------
 # PEXELS IMAGE SOURCE (PUBLIC PHOTOS)
 # --------------------------------------------------
-
-import requests
 from config import PEXELS_API_KEY, PEXELS_MAX_PAGES
-
 
 def crawl_pexels_images():
     collected = []
     captcha = False
 
-    headers = {
-        "Authorization": PEXELS_API_KEY
-    }
+    headers = {"Authorization": PEXELS_API_KEY}
+    per_page = 30
 
-    query = "old man portrait"
-    per_page = 30  # Pexels max
+    for query in FACE_QUERIES:
+        for page in range(1, PEXELS_MAX_PAGES + 1):
+            url = (
+                "https://api.pexels.com/v1/search"
+                f"?query={query}"
+                f"&page={page}"
+                f"&per_page={per_page}"
+            )
 
-    for page in range(1, PEXELS_MAX_PAGES + 1):
-        url = (
-            "https://api.pexels.com/v1/search"
-            f"?query={query}"
-            f"&page={page}"
-            f"&per_page={per_page}"
-        )
+            try:
+                r = requests.get(url, headers=headers, timeout=10)
+                if r.status_code != 200:
+                    continue
 
-        try:
-            r = requests.get(url, headers=headers, timeout=10)
+                photos = r.json().get("photos", [])
+                page_urls = 0
 
-            if r.status_code != 200:
+                for photo in photos:
+                    src = photo.get("src", {}).get("medium")
+                    if src:
+                        collected.append(src)
+                        page_urls += 1
+
+                print(f"[PEXELS] {query} | Page {page}: {page_urls}")
+
+                if page_urls == 0:
+                    break
+
+            except Exception:
                 continue
 
-            data = r.json()
-            photos = data.get("photos", [])
+            time.sleep(0.7)
 
-            page_urls = 0
-            for photo in photos:
-                src = photo.get("src", {}).get("medium")
-                if src:
-                    collected.append(src)
-                    page_urls += 1
-
-            print(f"[PEXELS] Page {page}: {page_urls} images")
-
-            if page_urls == 0:
-                break
-
-        except Exception:
-            continue
-
-    return {
-        "urls": collected,
-        "captcha": captcha
-    }
+    return {"urls": collected, "captcha": False}
 
 # --------------------------------------------------
 # SERPAPI IMAGE SOURCE (PUBLIC PHOTOS)
 # --------------------------------------------------
-
-import requests
 from config import UNSPLASH_MAX_PAGES, SERPAPI_API_KEY
 
 def crawl_unsplash_images():
     collected = []
-    captcha = False
 
     if not SERPAPI_API_KEY:
         print("[UNSPLASH] ❌ SERPAPI_API_KEY not set")
         return {"urls": [], "captcha": False}
 
-    for page in range(0, UNSPLASH_MAX_PAGES):
-        params = {
-            "engine": "google_images",
-            "q": "portrait face site:unsplash.com",
-            "ijn": page,  # image page index
-            "api_key": SERPAPI_API_KEY
-        }
+    for query in FACE_QUERIES:
+        for page in range(UNSPLASH_MAX_PAGES):
+            params = {
+                "engine": "google_images",
+                "q": f"{query} site:unsplash.com",
+                "ijn": page,
+                "api_key": SERPAPI_API_KEY
+            }
 
-        try:
-            r = requests.get("https://serpapi.com/search.json", params=params, timeout=15)
-            r.raise_for_status()
-            data = r.json()
+            try:
+                r = requests.get("https://serpapi.com/search.json", params=params, timeout=15)
+                r.raise_for_status()
+                data = r.json()
 
-            images = data.get("images_results", [])
-            page_urls = 0
+                images = data.get("images_results", [])
+                page_urls = 0
 
-            for img in images:
-                url = img.get("original")
-                if url and "unsplash.com" in url:
-                    collected.append(url)
-                    page_urls += 1
+                for img in images:
+                    url = img.get("original")
+                    if url and "unsplash.com" in url:
+                        collected.append(url)
+                        page_urls += 1
 
-            print(f"[UNSPLASH] Page {page + 1}: {page_urls} images")
+                print(f"[UNSPLASH] {query} | Page {page+1}: {page_urls}")
 
-            if page_urls == 0:
-                break
+                if page_urls == 0:
+                    break
 
-        except Exception as e:
-            print(f"[UNSPLASH] Error: {e}")
-            continue
+            except Exception as e:
+                print(f"[UNSPLASH] Error: {e}")
+                continue
 
-    return {
-        "urls": collected,
-        "captcha": False
-    }
+            time.sleep(1.0)
+
+    return {"urls": collected, "captcha": False}
