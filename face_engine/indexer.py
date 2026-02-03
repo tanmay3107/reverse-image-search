@@ -96,7 +96,13 @@ def rebuild_index_from_urls(image_urls: list[str]):
                 continue
 
             embeddings.append(emb)
-            metadata.append({"url": url})
+            from face_engine.image_hash import compute_phash
+
+            img_bytes = download_image(url)
+            img_hash = compute_phash(img_bytes)
+
+            metadata.append({"url": url,"phash": img_hash})
+
 
             print("[INDEXER] Face embedding stored")
 
