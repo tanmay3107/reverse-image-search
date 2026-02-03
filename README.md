@@ -5,21 +5,39 @@ FaceTrace AI is a research-grade reverse face search system that identifies visu
 ---
 
 ## 🔍 Core Capabilities
-* **Reverse Face Search:** Using FaceNet512 embeddings.
-* **Multi-Source Crawling:** Yahoo, Flickr, Wikimedia, Pexels, and SerpAPI.
-* **Vector Search:** Offline FAISS index construction using Cosine Similarity.
-* **Deduplication:** Duplicate-safe metadata handling for efficient storage.
-* **Web UI:** Flask-based interface for image uploads and results.
 
+* **True Reverse Image Search** using Google Reverse Image Search (SerpAPI)
+* **Identity Verification** using FaceNet512 + RetinaFace
+* **Fallback Local Search** using FAISS (cosine similarity)
+* **Multi-source Crawling** (Yahoo, Flickr, Wikimedia, Pexels)
+* **Offline Vector Indexing**
+* **Web-based UI** for uploads and results
+* **Confidence-based ranking**
+* **Source URL attribution**
 ---
 
 ## 🧠 System Architecture
 
-1. **Image Crawling:** Collects public images via keyword-based queries.
-2. **Offline Indexing:** - Detects faces using **RetinaFace**.
-   - Extracts embeddings using **FaceNet512**.
-   - Indexes embeddings using **FAISS**.
-3. **Search & UI:** Query image embeddings are compared against the index to retrieve Top-K matches.
+1. **Image Crawling (Offline)**
+   Public images are collected from multiple sources
+   URLs are deduplicated and stored as metadata
+2. **Offline Indexing**
+   Faces detected using RetinaFace
+   Embeddings extracted using FaceNet512
+   Embeddings normalized and indexed using FAISS (cosine similarity)
+3. **Reverse Search Pipeline (Online)**
+   When a user uploads an image:
+
+* **Stage 1** — Web-Scale Reverse Search
+   The uploaded image is sent to Google Reverse Image Search via SerpAPI
+   Candidate web images are retrieved
+* **Stage 2** — Identity Verification
+   Face embeddings are extracted from each candidate image
+   Embeddings are compared against the query face
+   Only same-person matches above a confidence threshold are returned
+* **Stage 3** — Fallback (If Needed)
+   If no web matches are found, the system falls back to:
+   Local FAISS-based face similarity search
 
 ---
 
