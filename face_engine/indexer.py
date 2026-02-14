@@ -4,7 +4,6 @@ import requests
 import numpy as np
 import faiss
 from deepface import DeepFace
-
 # -----------------------------
 # Paths
 # -----------------------------
@@ -101,7 +100,8 @@ def rebuild_index_from_urls(image_urls: list[str]):
             img_bytes = download_image(url)
             img_hash = compute_phash(img_bytes)
 
-            metadata.append({"url": url,"phash": img_hash})
+            phash = compute_phash(img)
+            metadata.append({"url": url,"phash": phash})
 
 
             print("[INDEXER] Face embedding stored")
