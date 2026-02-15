@@ -151,6 +151,8 @@ def search_face():
 
     total_matches = len(results)
     paginated = results[offset: offset + page_size]
+    print("Query embedding sample:", query_emb[0][:5])
+    print("Top 5 raw scores:", scores[0][:5])
 
     return jsonify({
         "count": total_matches,
