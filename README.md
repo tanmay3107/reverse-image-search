@@ -1,5 +1,8 @@
 # FaceTrace AI — Reverse Face Search System
 
+Implementring image hashing to improve performance
+
+
 FaceTrace AI is a research-grade reverse face search system that identifies visually similar faces across public web images. It combines large-scale image crawling, deep face embeddings, vector similarity search, and a web-based UI.
 
 ---
