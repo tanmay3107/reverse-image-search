@@ -1,17 +1,16 @@
-from PIL import Image
 import imagehash
+from PIL import Image
 import io
 
-def compute_phash(image_bytes) -> str:
-    """
-    Compute perceptual hash (pHash) for exact / near-exact image matching.
-    """
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    return str(imagehash.phash(img))
+def compute_phash(image_bytes):
+    try:
+        img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        return str(imagehash.phash(img))
+    except Exception:
+        return None
 
 
-def hamming_distance(h1: str, h2: str) -> int:
-    """
-    Compute Hamming distance between two hex hashes.
-    """
-    return bin(int(h1, 16) ^ int(h2, 16)).count("1")
+def hamming_distance(hash1, hash2):
+    if not hash1 or not hash2:
+        return 999
+    return sum(c1 != c2 for c1, c2 in zip(hash1, hash2))
