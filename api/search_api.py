@@ -45,32 +45,33 @@ def bytes_to_image(image_bytes):
 
 def get_query_embedding(image_bytes):
     img = bytes_to_image(image_bytes)
+
     if img is None:
+        print("❌ Image decode failed")
         return None
 
-    faces = DeepFace.extract_faces(
+    print("🖼 Image shape:", img.shape)
+
+    reps = DeepFace.represent(
         img_path=img,
+        model_name=MODEL_NAME,
         detector_backend=DETECTOR_BACKEND,
-        enforce_detection=False
+        enforce_detection=True   # FORCE face detection
     )
 
-    if len(faces) != 1:
+    print("👤 Faces detected:", len(reps))
+
+    if not reps:
+        print("❌ No face found")
         return None
 
-    face_img = faces[0]["face"]
-
-    rep = DeepFace.represent(
-        img_path=face_img,
-        model_name=MODEL_NAME,
-        enforce_detection=False
-    )
-
-    emb = np.array(rep[0]["embedding"], dtype="float32").reshape(1, -1)
-
-    # Normalize query
+    emb = np.array(reps[0]["embedding"], dtype="float32").reshape(1, -1)
     faiss.normalize_L2(emb)
 
+    print("🔢 Embedding first 5 values:", emb[0][:5])
+
     return emb
+
 
 
 # =============================
