@@ -142,6 +142,7 @@ def search_face():
     ]
 
     results.sort(key=lambda x: x["similarity"], reverse=True)
+    print("Index total:", index.ntotal)
 
     return jsonify({
         "count": len(results),

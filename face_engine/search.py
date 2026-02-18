@@ -62,6 +62,10 @@ def search_similar_faces(query_image_path: str, top_k=5):
     )[:top_k]
 
     results = []
+    print("First 5 metadata URLs:")
+    for i in range(5):
+        print(metadata[i]["url"])
+
     for idx, score in ranked:
         results.append({
             "similarity": round(float(score) * 100, 2),
