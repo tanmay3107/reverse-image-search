@@ -81,31 +81,46 @@ def get_query_embedding(image_bytes):
 # GOOGLE REVERSE SEARCH
 # =============================
 
+import uuid
+
 def google_reverse_search(image_bytes):
+
     if not SERPAPI_API_KEY:
+        print("❌ SERPAPI key missing")
         return []
 
-    encoded = base64.b64encode(image_bytes).decode("utf-8")
+    # 1️⃣ Save temp image
+    filename = f"temp_{uuid.uuid4().hex}.jpg"
+    temp_path = os.path.join("static", filename)
+
+    os.makedirs("static", exist_ok=True)
+
+    with open(temp_path, "wb") as f:
+        f.write(image_bytes)
+
+    # 2️⃣ Build public URL
+    image_url = f"http://localhost:5005/static/{filename}"
 
     params = {
         "engine": "google_reverse_image",
-        "image_base64": encoded,
+        "image_url": image_url,
         "api_key": SERPAPI_API_KEY
     }
 
     try:
-        response = requests.post(
+        response = requests.get(
             "https://serpapi.com/search.json",
-            data=params,
+            params=params,
             timeout=30
         )
 
+        print("STATUS:", response.status_code)
         response.raise_for_status()
+
         data = response.json()
 
         results = []
 
-        # Visual matches from Google
         for item in data.get("visual_matches", []):
             results.append({
                 "image_url": item.get("thumbnail"),
@@ -113,6 +128,7 @@ def google_reverse_search(image_bytes):
                 "similarity": 100.0
             })
 
+        print("Google results:", len(results))
         return results
 
     except Exception as e:
