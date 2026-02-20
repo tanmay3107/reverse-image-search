@@ -95,7 +95,7 @@ def google_reverse_search(image_bytes):
 
     try:
         response = requests.post(
-            "https://serpapi.com/search",
+            "https://serpapi.com/search.json",
             data=params,
             timeout=30
         )
@@ -198,6 +198,7 @@ def search_face():
         })
 
     results.sort(key=lambda x: x["similarity"], reverse=True)
+    print("Google results:", len(google_results))
 
     return jsonify({
         "count": len(results),
