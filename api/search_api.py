@@ -1,13 +1,22 @@
 import os
 import json
+import base64
+import requests
 import numpy as np
 import cv2
 import faiss
 from flask import Blueprint, request, jsonify
 from deepface import DeepFace
+from dotenv import load_dotenv
 from face_engine.image_hash import compute_phash, hamming_distance
 
+load_dotenv()
+
 search_api = Blueprint("search_api", __name__)
+
+# =============================
+# CONFIG
+# =============================
 
 BASE_DIR = "data/embeddings"
 FAISS_INDEX_PATH = os.path.join(BASE_DIR, "faiss.index")
@@ -18,12 +27,14 @@ DETECTOR_BACKEND = "retinaface"
 EMBEDDING_DIM = 512
 
 TOP_K = 50
-MIN_SIMILARITY = 70.0  # stricter threshold
+MIN_SIMILARITY = 75.0
 
+SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY")
 
 # =============================
 # LOAD INDEX
 # =============================
+
 if os.path.exists(FAISS_INDEX_PATH):
     index = faiss.read_index(FAISS_INDEX_PATH)
     with open(METADATA_PATH, "r") as f:
@@ -38,6 +49,7 @@ else:
 # =============================
 # HELPERS
 # =============================
+
 def bytes_to_image(image_bytes):
     arr = np.frombuffer(image_bytes, np.uint8)
     return cv2.imdecode(arr, cv2.IMREAD_COLOR)
@@ -50,46 +62,90 @@ def get_query_embedding(image_bytes):
         print("❌ Image decode failed")
         return None
 
-    print("🖼 Image shape:", img.shape)
-
     reps = DeepFace.represent(
         img_path=img,
         model_name=MODEL_NAME,
         detector_backend=DETECTOR_BACKEND,
-        enforce_detection=True   # FORCE face detection
+        enforce_detection=True
     )
 
-    print("👤 Faces detected:", len(reps))
-
     if not reps:
-        print("❌ No face found")
         return None
 
     emb = np.array(reps[0]["embedding"], dtype="float32").reshape(1, -1)
     faiss.normalize_L2(emb)
-
-    print("🔢 Embedding first 5 values:", emb[0][:5])
-
     return emb
 
+
+# =============================
+# GOOGLE REVERSE SEARCH
+# =============================
+
+def google_reverse_search(image_bytes):
+    if not SERPAPI_API_KEY:
+        return []
+
+    encoded = base64.b64encode(image_bytes).decode("utf-8")
+
+    params = {
+        "engine": "google_reverse_image",
+        "image_base64": encoded,
+        "api_key": SERPAPI_API_KEY
+    }
+
+    try:
+        response = requests.post(
+            "https://serpapi.com/search",
+            data=params,
+            timeout=30
+        )
+
+        response.raise_for_status()
+        data = response.json()
+
+        results = []
+
+        # Visual matches from Google
+        for item in data.get("visual_matches", []):
+            results.append({
+                "image_url": item.get("thumbnail"),
+                "source_url": item.get("link"),
+                "similarity": 100.0
+            })
+
+        return results
+
+    except Exception as e:
+        print("SerpAPI error:", e)
+        return []
 
 
 # =============================
 # SEARCH ROUTE
 # =============================
+
 @search_api.route("/api/search", methods=["POST"])
 def search_face():
-    if index is None:
-        return jsonify({"error": "Index not available"}), 500
 
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
     image_bytes = request.files["file"].read()
 
-    # =========================
-    # 1️⃣ EXACT IMAGE MATCH
-    # =========================
+    # =============================
+    # 1️⃣ GOOGLE REVERSE SEARCH
+    # =============================
+    google_results = google_reverse_search(image_bytes)
+
+    if google_results:
+        return jsonify({
+            "count": len(google_results),
+            "matches": google_results[:5]
+        })
+
+    # =============================
+    # 2️⃣ LOCAL EXACT MATCH (pHash)
+    # =============================
     query_hash = compute_phash(image_bytes)
 
     for item in metadata:
@@ -107,9 +163,13 @@ def search_face():
                 }]
             })
 
-    # =========================
-    # 2️⃣ IDENTITY MATCH
-    # =========================
+    # =============================
+    # 3️⃣ IDENTITY MATCH (FAISS)
+    # =============================
+
+    if index is None:
+        return jsonify({"error": "Index not available"}), 500
+
     query_emb = get_query_embedding(image_bytes)
 
     if query_emb is None:
@@ -121,7 +181,7 @@ def search_face():
 
     scores, indices = index.search(query_emb, TOP_K)
 
-    best_per_url = {}
+    results = []
 
     for score, idx in zip(scores[0], indices[0]):
         if idx < 0:
@@ -132,18 +192,12 @@ def search_face():
         if similarity < MIN_SIMILARITY:
             continue
 
-        url = metadata[idx]["url"]
-
-        if url not in best_per_url or similarity > best_per_url[url]:
-            best_per_url[url] = similarity
-
-    results = [
-        {"image_url": url, "similarity": round(sim, 2)}
-        for url, sim in best_per_url.items()
-    ]
+        results.append({
+            "image_url": metadata[idx]["url"],
+            "similarity": round(similarity, 2)
+        })
 
     results.sort(key=lambda x: x["similarity"], reverse=True)
-    print("Index total:", index.ntotal)
 
     return jsonify({
         "count": len(results),
