@@ -27,6 +27,9 @@ Thumbs.db
 # ===============================
 data/
 !data/.gitkeep
+static/**/*.jpg
+static/**/*.jpeg
+static/**/*.png
 
 # ===============================
 # FAISS / Embeddings
